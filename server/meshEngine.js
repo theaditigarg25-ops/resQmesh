@@ -9,6 +9,28 @@ const relayNodes = [
   { id: 5, name: 'Emergency Node - Police Station', battery: generateBattery(), isGateway: true }
 ];
 
+const activeEmergencies = new Map();
+
+function initMesh(io) {
+  io.on('connection', (socket) => {
+    socket.on('sos:trigger', (data) => {
+      const record = {
+        ...data,
+        status: 'relaying',
+        hops: [],
+        ttl: 6
+      };
+      
+      activeEmergencies.set(data.id, record);
+      
+      // Immediately re-broadcast as 'sos:new' to ALL connected clients
+      io.emit('sos:new', record);
+    });
+  });
+}
+
 module.exports = {
-  relayNodes
+  relayNodes,
+  activeEmergencies,
+  initMesh
 };
