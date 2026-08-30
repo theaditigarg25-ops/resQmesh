@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -10,6 +10,38 @@ export default function SOSScreen() {
   const [status, setStatus] = useState('idle');
   const [category, setCategory] = useState('Medical');
   const [description, setDescription] = useState('');
+  const [countdown, setCountdown] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const startCountdown = () => {
+    setCountdown(3);
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          setCountdown(null);
+          handleSOS();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const cancelCountdown = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setCountdown(null);
+  };
 
   const handleSOS = async () => {
     setStatus('sending');
@@ -74,8 +106,8 @@ export default function SOSScreen() {
                 key={cat}
                 onClick={() => setCategory(cat)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${category === cat
-                    ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                   }`}
               >
                 {cat}
@@ -93,8 +125,8 @@ export default function SOSScreen() {
         </div>
 
         <button
-          onClick={handleSOS}
-          disabled={status !== 'idle'}
+          onClick={startCountdown}
+          disabled={status !== 'idle' || countdown !== null}
           className={`w-56 h-56 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl ${status === 'sent'
             ? 'bg-emerald-500 shadow-emerald-500/50 scale-95'
             : 'bg-red-600 hover:bg-red-500 active:scale-95 shadow-red-600/50 cursor-pointer'
@@ -117,6 +149,22 @@ export default function SOSScreen() {
 
         {/* Home indicator line */}
         <div className="absolute bottom-2 w-32 h-1.5 bg-slate-700 rounded-full"></div>
+
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+          <div className="absolute inset-0 bg-red-600 flex flex-col items-center justify-center z-50 rounded-[40px]">
+            <span className="text-white text-[10rem] font-extrabold leading-none animate-pulse">
+              {countdown}
+            </span>
+            <p className="text-red-200 text-lg font-semibold mt-4 mb-12">Sending SOS...</p>
+            <button
+              onClick={cancelCountdown}
+              className="px-12 py-4 bg-white/20 border-2 border-white rounded-full text-white text-xl font-bold hover:bg-white/30 active:scale-95 transition-all"
+            >
+              CANCEL
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
