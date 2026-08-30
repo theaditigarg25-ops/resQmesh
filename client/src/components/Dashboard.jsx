@@ -51,7 +51,7 @@ export default function Dashboard() {
   const [sosList, setSosList] = useState([]);
 
   useEffect(() => {
-    // Fetch initial SOS records
+    // Fetch initial SOS records on mount so refresh doesn't lose data
     fetch(`${SERVER_URL}/api/sos`)
       .then(res => res.json())
       .then(data => {
@@ -67,7 +67,7 @@ export default function Dashboard() {
       })
       .catch(err => console.error("Error fetching initial SOS records:", err));
 
-    // Socket Event Listeners
+    // Socket Event Listeners for live updates
     const handleNew = (newRecord) => {
       setSosList(prev => {
         if (prev.some(item => item.id === newRecord.id)) return prev;
@@ -140,8 +140,11 @@ export default function Dashboard() {
     return new Date(b.timestamp || b.receivedAt || 0) - new Date(a.timestamp || a.receivedAt || 0);
   });
 
-  // Active SOS cases for Leaflet map markers (remove when resolved/false_positive)
+  // Active SOS cases (remove when resolved/false_positive)
   const activeSosForMap = sortedSosList.filter(s => s.status !== 'resolved' && s.status !== 'false_positive');
+  
+  // Critical active count
+  const criticalCount = activeSosForMap.filter(s => s.priority === 'CRITICAL').length;
 
   const renderPriorityBadge = (priority) => {
     if (priority === 'CRITICAL') {
@@ -214,7 +217,7 @@ export default function Dashboard() {
         <nav className="space-y-1 text-sm font-medium">
           <div className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-between">
             <span>Console Dashboard</span>
-            <span className="text-xs bg-red-500/20 px-2 py-0.5 rounded-full">{activeSosForMap.length}</span>
+            <span className="text-xs bg-red-500/20 px-2 py-0.5 rounded-full font-bold">{activeSosForMap.length}</span>
           </div>
           <div className="px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800/50 transition-colors cursor-pointer">
             Node Topology
@@ -225,173 +228,223 @@ export default function Dashboard() {
         </nav>
       </aside>
 
-      {/* Main Area Split Side-by-Side into Two Panels */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Live SOS Feed */}
-        <section className="w-1/2 border-r border-slate-800 bg-slate-900/50 flex flex-col p-4 overflow-hidden">
-          <div className="pb-3 border-b border-slate-800 flex justify-between items-center shrink-0">
-            <h2 className="text-lg font-bold text-slate-200">Live SOS Feed</h2>
-            <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700 font-mono">
-              {sortedSosList.length} Total ({activeSosForMap.length} Active)
-            </span>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1">
-            {sortedSosList.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-500 p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center mb-3">
-                  📡
-                </div>
-                <p className="text-sm font-medium">Live SOS Feed</p>
-                <p className="text-xs text-slate-600 mt-1">Waiting for incoming distress signals...</p>
+      {/* Main Container Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header Stat Bar */}
+        <header className="bg-slate-900 border-b border-slate-800 px-6 py-3 shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {/* Total Active SOS Stat */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-base">
+                🚨
               </div>
-            ) : (
-              sortedSosList.map(sos => (
-                <div 
-                  key={sos.id} 
-                  className={`p-4 rounded-xl border bg-slate-900/90 shadow-md transition-all relative overflow-hidden ${
-                    sos.status === 'resolved' || sos.status === 'false_positive' ? 'opacity-60 border-slate-800/50' :
-                    sos.priority === 'CRITICAL' ? 'border-red-500/50 shadow-red-950/20' :
-                    sos.priority === 'HIGH' ? 'border-orange-500/50' :
-                    'border-slate-800'
-                  }`}
-                >
-                  {/* Top Bar: Category, Status Label & Priority Badge */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold uppercase tracking-wide bg-slate-800 text-slate-300 px-2.5 py-1 rounded border border-slate-700">
-                        {sos.category || 'Emergency'}
-                      </span>
-                      {renderStatusLabel(sos.status, sos.responderName)}
-                    </div>
-                    {renderPriorityBadge(sos.priority)}
+              <div>
+                <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Total Active SOS</div>
+                <div className="text-lg font-bold text-slate-100 font-mono leading-none mt-0.5">{activeSosForMap.length}</div>
+              </div>
+            </div>
+
+            <div className="h-8 w-px bg-slate-800"></div>
+
+            {/* Critical Count Stat */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-base">
+                ⚡
+              </div>
+              <div>
+                <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Critical Count</div>
+                <div className="text-lg font-bold text-red-400 font-mono leading-none mt-0.5">{criticalCount}</div>
+              </div>
+            </div>
+
+            <div className="h-8 w-px bg-slate-800"></div>
+
+            {/* Avg Response Time Stat */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-base">
+                ⏱️
+              </div>
+              <div>
+                <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Avg Response Time</div>
+                <div className="text-lg font-bold text-blue-400 font-mono leading-none mt-0.5">1.8 mins</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-medium text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Socket Live Engine
+          </div>
+        </header>
+
+        {/* Two Main Side-by-Side Panels */}
+        <main className="flex-1 flex overflow-hidden">
+          {/* Left Panel: Live SOS Feed */}
+          <section className="w-1/2 border-r border-slate-800 bg-slate-900/50 flex flex-col p-4 overflow-hidden">
+            <div className="pb-3 border-b border-slate-800 flex justify-between items-center shrink-0">
+              <h2 className="text-lg font-bold text-slate-200">Live SOS Feed</h2>
+              <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700 font-mono">
+                {sortedSosList.length} Total ({activeSosForMap.length} Active)
+              </span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1">
+              {sortedSosList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-500 p-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center mb-3">
+                    📡
                   </div>
-
-                  {/* Description */}
-                  <p className="text-sm text-slate-200 font-medium mb-3 line-clamp-2">
-                    {sos.description || 'No description provided.'}
-                  </p>
-
-                  {/* Tags */}
-                  {sos.tags && sos.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {sos.tags.map((tag, idx) => (
-                        <span key={idx} className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700/60">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Footer Meta Details */}
-                  <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80">
-                    <div className="flex items-center gap-3">
-                      <span>📱 <strong className="text-slate-300">{sos.deviceName || sos.id}</strong></span>
-                      <span>🔄 Hops: <strong className="text-blue-400">{sos.hopCount}</strong></span>
-                    </div>
-                    <span className="font-mono text-slate-500">
-                      {sos.timestamp ? new Date(sos.timestamp).toLocaleTimeString() : 'Just now'}
-                    </span>
-                  </div>
-
-                  {/* Action Controls: Dispatch Button & Resolution Dropdown */}
-                  <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800/80">
-                    <button 
-                      onClick={() => handleDispatch(sos.id)}
-                      disabled={sos.status === 'dispatched' || sos.status === 'resolved' || sos.status === 'false_positive'}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shrink-0"
-                    >
-                      <span>🚑</span> Dispatch
-                    </button>
-
-                    <select
-                      onChange={(e) => {
-                        handleResolve(sos.id, e.target.value);
-                        e.target.value = "";
-                      }}
-                      disabled={sos.status === 'resolved' || sos.status === 'false_positive'}
-                      className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-medium rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex-1"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Resolve Options...</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="false_positive">False Positive</option>
-                    </select>
-                  </div>
+                  <p className="text-sm font-medium">Live SOS Feed</p>
+                  <p className="text-xs text-slate-600 mt-1">Waiting for incoming distress signals...</p>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Right Panel: Map */}
-        <section className="w-1/2 bg-slate-950 flex flex-col p-4 relative overflow-hidden">
-          <div className="pb-3 border-b border-slate-800 flex justify-between items-center z-10 shrink-0 mb-4">
-            <h2 className="text-lg font-bold text-slate-200">Map Area (Delhi EOC)</h2>
-            <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20 font-semibold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Grid (28.6139, 77.2090)
-            </span>
-          </div>
-
-          {/* Leaflet Map */}
-          <div className="flex-1 rounded-xl overflow-hidden border border-slate-800 relative z-0">
-            <MapContainer 
-              center={[28.6139, 77.2090]} 
-              zoom={12} 
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={true}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-
-              {/* Fixed Infrastructure Markers */}
-              {MOCK_INFRASTRUCTURE.map(infra => (
-                <Marker 
-                  key={infra.id} 
-                  position={[infra.lat, infra.lng]} 
-                  icon={getInfraIcon(infra.type)}
-                >
-                  <Popup>
-                    <div className="text-slate-900 font-sans p-1">
-                      <div className="font-bold text-sm">{infra.name}</div>
-                      <div className="text-xs text-slate-600 capitalize font-medium">Facility: {infra.type}</div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-
-              {/* Active SOS Markers (Pulsing Red) */}
-              {activeSosForMap.map(sos => {
-                const lat = sos.lat ? Number(sos.lat) : 28.6139 + (Math.random() - 0.5) * 0.05;
-                const lng = sos.lng ? Number(sos.lng) : 77.2090 + (Math.random() - 0.5) * 0.05;
-                
-                return (
-                  <Marker 
+              ) : (
+                sortedSosList.map(sos => (
+                  <div 
                     key={sos.id} 
-                    position={[lat, lng]} 
-                    icon={sosPulsingIcon}
+                    className={`p-4 rounded-xl border bg-slate-900/90 shadow-md transition-all relative overflow-hidden ${
+                      sos.status === 'resolved' || sos.status === 'false_positive' ? 'opacity-60 border-slate-800/50' :
+                      sos.priority === 'CRITICAL' ? 'border-red-500/50 shadow-red-950/20' :
+                      sos.priority === 'HIGH' ? 'border-orange-500/50' :
+                      'border-slate-800'
+                    }`}
+                  >
+                    {/* Top Bar: Category, Status Label & Priority Badge */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold uppercase tracking-wide bg-slate-800 text-slate-300 px-2.5 py-1 rounded border border-slate-700">
+                          {sos.category || 'Emergency'}
+                        </span>
+                        {renderStatusLabel(sos.status, sos.responderName)}
+                      </div>
+                      {renderPriorityBadge(sos.priority)}
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-sm text-slate-200 font-medium mb-3 line-clamp-2">
+                      {sos.description || 'No description provided.'}
+                    </p>
+
+                    {/* Tags */}
+                    {sos.tags && sos.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {sos.tags.map((tag, idx) => (
+                          <span key={idx} className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700/60">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Footer Meta Details */}
+                    <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80">
+                      <div className="flex items-center gap-3">
+                        <span>📱 <strong className="text-slate-300">{sos.deviceName || sos.id}</strong></span>
+                        <span>🔄 Hops: <strong className="text-blue-400">{sos.hopCount}</strong></span>
+                      </div>
+                      <span className="font-mono text-slate-500">
+                        {sos.timestamp ? new Date(sos.timestamp).toLocaleTimeString() : 'Just now'}
+                      </span>
+                    </div>
+
+                    {/* Action Controls: Dispatch Button & Resolution Dropdown */}
+                    <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800/80">
+                      <button 
+                        onClick={() => handleDispatch(sos.id)}
+                        disabled={sos.status === 'dispatched' || sos.status === 'resolved' || sos.status === 'false_positive'}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                      >
+                        <span>🚑</span> Dispatch
+                      </button>
+
+                      <select
+                        onChange={(e) => {
+                          handleResolve(sos.id, e.target.value);
+                          e.target.value = "";
+                        }}
+                        disabled={sos.status === 'resolved' || sos.status === 'false_positive'}
+                        className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-medium rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex-1"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Resolve Options...</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="false_positive">False Positive</option>
+                      </select>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Right Panel: Map */}
+          <section className="w-1/2 bg-slate-950 flex flex-col p-4 relative overflow-hidden">
+            <div className="pb-3 border-b border-slate-800 flex justify-between items-center z-10 shrink-0 mb-4">
+              <h2 className="text-lg font-bold text-slate-200">Map Area (Delhi EOC)</h2>
+              <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20 font-semibold flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live Grid (28.6139, 77.2090)
+              </span>
+            </div>
+
+            {/* Leaflet Map */}
+            <div className="flex-1 rounded-xl overflow-hidden border border-slate-800 relative z-0">
+              <MapContainer 
+                center={[28.6139, 77.2090]} 
+                zoom={12} 
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+
+                {/* Fixed Infrastructure Markers */}
+                {MOCK_INFRASTRUCTURE.map(infra => (
+                  <Marker 
+                    key={infra.id} 
+                    position={[infra.lat, infra.lng]} 
+                    icon={getInfraIcon(infra.type)}
                   >
                     <Popup>
                       <div className="text-slate-900 font-sans p-1">
-                        <div className="font-bold text-sm text-red-600 flex items-center gap-1">
-                          🚨 {sos.category || 'SOS Emergency'}
-                        </div>
-                        <p className="text-xs text-slate-700 mt-1 font-medium">{sos.description || 'No description'}</p>
-                        <div className="text-[11px] text-slate-500 mt-1">
-                          Device: {sos.deviceName || sos.id} | Hops: {sos.hopCount}
-                        </div>
+                        <div className="font-bold text-sm">{infra.name}</div>
+                        <div className="text-xs text-slate-600 capitalize font-medium">Facility: {infra.type}</div>
                       </div>
                     </Popup>
                   </Marker>
-                );
-              })}
-            </MapContainer>
-          </div>
-        </section>
-      </main>
+                ))}
+
+                {/* Active SOS Markers (Pulsing Red) */}
+                {activeSosForMap.map(sos => {
+                  const lat = sos.lat ? Number(sos.lat) : 28.6139 + (Math.random() - 0.5) * 0.05;
+                  const lng = sos.lng ? Number(sos.lng) : 77.2090 + (Math.random() - 0.5) * 0.05;
+                  
+                  return (
+                    <Marker 
+                      key={sos.id} 
+                      position={[lat, lng]} 
+                      icon={sosPulsingIcon}
+                    >
+                      <Popup>
+                        <div className="text-slate-900 font-sans p-1">
+                          <div className="font-bold text-sm text-red-600 flex items-center gap-1">
+                            🚨 {sos.category || 'SOS Emergency'}
+                          </div>
+                          <p className="text-xs text-slate-700 mt-1 font-medium">{sos.description || 'No description'}</p>
+                          <div className="text-[11px] text-slate-500 mt-1">
+                            Device: {sos.deviceName || sos.id} | Hops: {sos.hopCount}
+                          </div>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                })}
+              </MapContainer>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
