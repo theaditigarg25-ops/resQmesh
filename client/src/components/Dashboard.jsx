@@ -121,6 +121,15 @@ export default function Dashboard() {
     };
   }, []);
 
+  const handleDispatch = (sosId) => {
+    socket.emit('sos:dispatch', { sosId, responderName: 'Unit 4' });
+  };
+
+  const handleResolve = (sosId, resolution) => {
+    if (!resolution) return;
+    socket.emit('sos:resolve', { sosId, resolution });
+  };
+
   // Sort list so CRITICAL cases float to the top
   const sortedSosList = [...sosList].sort((a, b) => {
     const weightA = a.priority ? (PRIORITY_WEIGHTS[a.priority] || 0) : 0;
@@ -145,6 +154,43 @@ export default function Dashboard() {
       return <span className="bg-yellow-500 text-black text-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">NORMAL</span>;
     }
     return <span className="bg-gray-600 text-gray-200 text-xs px-2.5 py-1 rounded font-semibold uppercase tracking-wider">Pending...</span>;
+  };
+
+  const renderStatusLabel = (status, responderName) => {
+    if (!status) return null;
+    if (status === 'dispatched') {
+      return (
+        <span className="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Dispatched ({responderName || 'Unit 4'})
+        </span>
+      );
+    }
+    if (status === 'resolved') {
+      return (
+        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Resolved
+        </span>
+      );
+    }
+    if (status === 'false_positive') {
+      return (
+        <span className="text-[10px] bg-slate-700 text-slate-400 border border-slate-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          False Positive
+        </span>
+      );
+    }
+    if (status === 'lost') {
+      return (
+        <span className="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Packet Lost
+        </span>
+      );
+    }
+    return (
+      <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-bold uppercase tracking-wider capitalize">
+        {status}
+      </span>
+    );
   };
 
   const getInfraIcon = (type) => {
@@ -210,15 +256,13 @@ export default function Dashboard() {
                     'border-slate-800'
                   }`}
                 >
-                  {/* Top Bar: Category & Priority Badge */}
+                  {/* Top Bar: Category, Status Label & Priority Badge */}
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold uppercase tracking-wide bg-slate-800 text-slate-300 px-2.5 py-1 rounded border border-slate-700">
                         {sos.category || 'Emergency'}
                       </span>
-                      {sos.status === 'resolved' && (
-                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold uppercase">Resolved</span>
-                      )}
+                      {renderStatusLabel(sos.status, sos.responderName)}
                     </div>
                     {renderPriorityBadge(sos.priority)}
                   </div>
@@ -248,6 +292,31 @@ export default function Dashboard() {
                     <span className="font-mono text-slate-500">
                       {sos.timestamp ? new Date(sos.timestamp).toLocaleTimeString() : 'Just now'}
                     </span>
+                  </div>
+
+                  {/* Action Controls: Dispatch Button & Resolution Dropdown */}
+                  <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800/80">
+                    <button 
+                      onClick={() => handleDispatch(sos.id)}
+                      disabled={sos.status === 'dispatched' || sos.status === 'resolved' || sos.status === 'false_positive'}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                    >
+                      <span>🚑</span> Dispatch
+                    </button>
+
+                    <select
+                      onChange={(e) => {
+                        handleResolve(sos.id, e.target.value);
+                        e.target.value = "";
+                      }}
+                      disabled={sos.status === 'resolved' || sos.status === 'false_positive'}
+                      className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-medium rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex-1"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Resolve Options...</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="false_positive">False Positive</option>
+                    </select>
                   </div>
                 </div>
               ))
