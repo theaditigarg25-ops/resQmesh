@@ -80,10 +80,14 @@ function routeToGateway(io, sos) {
         }
         doHop();
       } else {
+        sos.status = 'arrived';
+        sos.totalHops = hopNumber - 1;
+        sos.arrivalTimeMs = Date.now() - sos.receivedAt;
+        
         io.emit('sos:arrived', {
           sosId: sos.id,
-          totalHops: hopNumber - 1,
-          arrivalTimeMs: Date.now()
+          totalHops: sos.totalHops,
+          arrivalTimeMs: sos.arrivalTimeMs
         });
       }
     }, delay);
@@ -105,7 +109,8 @@ function initMesh(io) {
         ...data,
         status: 'relaying',
         hops: [],
-        ttl: 6
+        ttl: 6,
+        receivedAt: Date.now()
       };
       
       activeEmergencies.set(data.id, record);
