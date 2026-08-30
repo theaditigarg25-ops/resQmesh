@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 const socket = io(SERVER_URL);
@@ -9,6 +12,40 @@ const PRIORITY_WEIGHTS = {
   HIGH: 2,
   NORMAL: 1
 };
+
+// Hardcoded Infrastructure near Delhi (28.6139, 77.2090)
+const MOCK_INFRASTRUCTURE = [
+  { id: 'p1', name: 'Connaught Place Police Station', type: 'police', lat: 28.6315, lng: 77.2167 },
+  { id: 'p2', name: 'Civil Lines Police Station', type: 'police', lat: 28.6812, lng: 77.2227 },
+  { id: 'p3', name: 'Lajpat Nagar Police Station', type: 'police', lat: 28.5685, lng: 77.2432 },
+  { id: 'h1', name: 'AIIMS Hospital', type: 'hospital', lat: 28.5672, lng: 77.2100 },
+  { id: 'h2', name: 'Ram Manohar Lohia Hospital', type: 'hospital', lat: 28.6250, lng: 77.2150 },
+  { id: 's1', name: 'Old Delhi Relief Shelter', type: 'shelter', lat: 28.6562, lng: 77.2300 }
+];
+
+// Helper to construct custom Leaflet DivIcons
+const createCustomIcon = (colorClass, iconSymbol) => L.divIcon({
+  className: 'custom-leaflet-marker',
+  html: `<div class="w-8 h-8 rounded-full ${colorClass} text-white flex items-center justify-center font-bold text-sm shadow-md border-2 border-white">${iconSymbol}</div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16]
+});
+
+const policeIcon = createCustomIcon('bg-blue-600', '🚓');
+const hospitalIcon = createCustomIcon('bg-emerald-600', '🏥');
+const shelterIcon = createCustomIcon('bg-amber-500', '⛺');
+
+const sosPulsingIcon = L.divIcon({
+  className: 'custom-sos-marker',
+  html: `
+    <div class="relative flex items-center justify-center w-6 h-6">
+      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+      <span class="relative inline-flex rounded-full h-4 w-4 bg-red-600 border-2 border-white shadow-lg"></span>
+    </div>
+  `,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
 
 export default function Dashboard() {
   const [sosList, setSosList] = useState([]);
@@ -30,21 +67,20 @@ export default function Dashboard() {
       })
       .catch(err => console.error("Error fetching initial SOS records:", err));
 
-    // Listen for 'sos:new'
+    // Socket Event Listeners
     const handleNew = (newRecord) => {
       setSosList(prev => {
         if (prev.some(item => item.id === newRecord.id)) return prev;
         const card = {
           ...newRecord,
           hopCount: '-',
-          priority: null, // Grey Pending... badge
+          priority: null,
           tags: []
         };
         return [card, ...prev];
       });
     };
 
-    // Listen for 'sos:hop' to update hop count live
     const handleHop = ({ sosId, hopNumber }) => {
       setSosList(prev => prev.map(item => {
         if (item.id === sosId) {
@@ -54,7 +90,6 @@ export default function Dashboard() {
       }));
     };
 
-    // Listen for 'sos:triaged' to update badge and tags
     const handleTriaged = ({ sosId, priority, tags }) => {
       setSosList(prev => prev.map(item => {
         if (item.id === sosId) {
@@ -64,14 +99,25 @@ export default function Dashboard() {
       }));
     };
 
+    const handleStatusUpdate = ({ sosId, status }) => {
+      setSosList(prev => prev.map(item => {
+        if (item.id === sosId) {
+          return { ...item, status };
+        }
+        return item;
+      }));
+    };
+
     socket.on('sos:new', handleNew);
     socket.on('sos:hop', handleHop);
     socket.on('sos:triaged', handleTriaged);
+    socket.on('sos:statusUpdate', handleStatusUpdate);
 
     return () => {
       socket.off('sos:new', handleNew);
       socket.off('sos:hop', handleHop);
       socket.off('sos:triaged', handleTriaged);
+      socket.off('sos:statusUpdate', handleStatusUpdate);
     };
   }, []);
 
@@ -80,10 +126,13 @@ export default function Dashboard() {
     const weightA = a.priority ? (PRIORITY_WEIGHTS[a.priority] || 0) : 0;
     const weightB = b.priority ? (PRIORITY_WEIGHTS[b.priority] || 0) : 0;
     if (weightB !== weightA) {
-      return weightB - weightA; // Higher priority floats to top
+      return weightB - weightA;
     }
     return new Date(b.timestamp || b.receivedAt || 0) - new Date(a.timestamp || a.receivedAt || 0);
   });
+
+  // Active SOS cases for Leaflet map markers (remove when resolved/false_positive)
+  const activeSosForMap = sortedSosList.filter(s => s.status !== 'resolved' && s.status !== 'false_positive');
 
   const renderPriorityBadge = (priority) => {
     if (priority === 'CRITICAL') {
@@ -96,6 +145,12 @@ export default function Dashboard() {
       return <span className="bg-yellow-500 text-black text-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">NORMAL</span>;
     }
     return <span className="bg-gray-600 text-gray-200 text-xs px-2.5 py-1 rounded font-semibold uppercase tracking-wider">Pending...</span>;
+  };
+
+  const getInfraIcon = (type) => {
+    if (type === 'police') return policeIcon;
+    if (type === 'hospital') return hospitalIcon;
+    return shelterIcon;
   };
 
   return (
@@ -113,7 +168,7 @@ export default function Dashboard() {
         <nav className="space-y-1 text-sm font-medium">
           <div className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-between">
             <span>Console Dashboard</span>
-            <span className="text-xs bg-red-500/20 px-2 py-0.5 rounded-full">{sosList.length}</span>
+            <span className="text-xs bg-red-500/20 px-2 py-0.5 rounded-full">{activeSosForMap.length}</span>
           </div>
           <div className="px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800/50 transition-colors cursor-pointer">
             Node Topology
@@ -131,7 +186,7 @@ export default function Dashboard() {
           <div className="pb-3 border-b border-slate-800 flex justify-between items-center shrink-0">
             <h2 className="text-lg font-bold text-slate-200">Live SOS Feed</h2>
             <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700 font-mono">
-              {sortedSosList.length} Active
+              {sortedSosList.length} Total ({activeSosForMap.length} Active)
             </span>
           </div>
           
@@ -149,6 +204,7 @@ export default function Dashboard() {
                 <div 
                   key={sos.id} 
                   className={`p-4 rounded-xl border bg-slate-900/90 shadow-md transition-all relative overflow-hidden ${
+                    sos.status === 'resolved' || sos.status === 'false_positive' ? 'opacity-60 border-slate-800/50' :
                     sos.priority === 'CRITICAL' ? 'border-red-500/50 shadow-red-950/20' :
                     sos.priority === 'HIGH' ? 'border-orange-500/50' :
                     'border-slate-800'
@@ -156,9 +212,14 @@ export default function Dashboard() {
                 >
                   {/* Top Bar: Category & Priority Badge */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wide bg-slate-800 text-slate-300 px-2.5 py-1 rounded border border-slate-700">
-                      {sos.category || 'Emergency'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide bg-slate-800 text-slate-300 px-2.5 py-1 rounded border border-slate-700">
+                        {sos.category || 'Emergency'}
+                      </span>
+                      {sos.status === 'resolved' && (
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold uppercase">Resolved</span>
+                      )}
+                    </div>
                     {renderPriorityBadge(sos.priority)}
                   </div>
 
@@ -196,17 +257,69 @@ export default function Dashboard() {
 
         {/* Right Panel: Map */}
         <section className="w-1/2 bg-slate-950 flex flex-col p-4 relative overflow-hidden">
-          <div className="pb-3 border-b border-slate-800 flex justify-between items-center z-10 shrink-0">
-            <h2 className="text-lg font-bold text-slate-200">Map</h2>
-            <span className="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700">GPS Standby</span>
+          <div className="pb-3 border-b border-slate-800 flex justify-between items-center z-10 shrink-0 mb-4">
+            <h2 className="text-lg font-bold text-slate-200">Map Area (Delhi EOC)</h2>
+            <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20 font-semibold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Grid (28.6139, 77.2090)
+            </span>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center mb-3">
-              🗺️
-            </div>
-            <p className="text-sm font-medium">Map Viewport</p>
-            <p className="text-xs text-slate-600 mt-1">Map viewport ready</p>
+          {/* Leaflet Map */}
+          <div className="flex-1 rounded-xl overflow-hidden border border-slate-800 relative z-0">
+            <MapContainer 
+              center={[28.6139, 77.2090]} 
+              zoom={12} 
+              style={{ height: '100%', width: '100%' }}
+              zoomControl={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              {/* Fixed Infrastructure Markers */}
+              {MOCK_INFRASTRUCTURE.map(infra => (
+                <Marker 
+                  key={infra.id} 
+                  position={[infra.lat, infra.lng]} 
+                  icon={getInfraIcon(infra.type)}
+                >
+                  <Popup>
+                    <div className="text-slate-900 font-sans p-1">
+                      <div className="font-bold text-sm">{infra.name}</div>
+                      <div className="text-xs text-slate-600 capitalize font-medium">Facility: {infra.type}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Active SOS Markers (Pulsing Red) */}
+              {activeSosForMap.map(sos => {
+                const lat = sos.lat ? Number(sos.lat) : 28.6139 + (Math.random() - 0.5) * 0.05;
+                const lng = sos.lng ? Number(sos.lng) : 77.2090 + (Math.random() - 0.5) * 0.05;
+                
+                return (
+                  <Marker 
+                    key={sos.id} 
+                    position={[lat, lng]} 
+                    icon={sosPulsingIcon}
+                  >
+                    <Popup>
+                      <div className="text-slate-900 font-sans p-1">
+                        <div className="font-bold text-sm text-red-600 flex items-center gap-1">
+                          🚨 {sos.category || 'SOS Emergency'}
+                        </div>
+                        <p className="text-xs text-slate-700 mt-1 font-medium">{sos.description || 'No description'}</p>
+                        <div className="text-[11px] text-slate-500 mt-1">
+                          Device: {sos.deviceName || sos.id} | Hops: {sos.hopCount}
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+            </MapContainer>
           </div>
         </section>
       </main>

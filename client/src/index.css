@@ -44,3 +44,9 @@ body {
 .animate-hop-glow {
   animation: hop-glow 0.6s ease-in-out;
 }
+
+/* Custom Leaflet Marker Cleanups */
+.custom-leaflet-marker, .custom-sos-marker {
+  background: transparent !important;
+  border: none !important;
+}
