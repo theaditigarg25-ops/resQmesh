@@ -17,32 +17,118 @@ const io = new Server(server, {
 
 const PORT = 4000;
 
+// State
+let sosRecords = [];
+let relayNodes = [
+  { id: 'node_1', lat: 37.7749, lng: -122.4194, battery: 98 },
+  { id: 'node_2', lat: 37.7849, lng: -122.4094, battery: 85 },
+  { id: 'node_3', lat: 37.7649, lng: -122.4294, battery: 72 },
+  { id: 'node_4', lat: 37.7799, lng: -122.4394, battery: 91 },
+  { id: 'node_5', lat: 37.7699, lng: -122.4094, battery: 100 }
+];
+
 app.get('/api/sos', (req, res) => {
-  res.json([]);
+  res.json(sosRecords);
 });
 
 app.get('/api/nodes', (req, res) => {
-  res.json([]);
+  res.json(relayNodes);
 });
 
 app.post('/api/triage', (req, res) => {
-  res.json({ priority: 'NORMAL', tags: [] });
+  const { description, category } = req.body;
+  
+  let priority = 'NORMAL';
+  let tags = [];
+  
+  const text = (description || '').toLowerCase();
+  if (text.includes('fire') || text.includes('unconscious') || text.includes('bleeding')) {
+    priority = 'CRITICAL';
+    tags.push('immediate_dispatch');
+  } else if (text.includes('broken') || text.includes('trapped')) {
+    priority = 'HIGH';
+    tags.push('medical_required');
+  }
+
+  res.json({ priority, tags });
 });
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
   socket.on('sos:trigger', (data) => {
-    // Broadcast immediately per contract
-    io.emit('sos:new', data);
+    const record = {
+      ...data,
+      status: 'pending',
+      totalHops: 0
+    };
+    
+    sosRecords.unshift(record);
+    io.emit('sos:new', record);
+    
+    // Simulate Mesh Network Hops
+    let currentHop = 0;
+    const maxHops = Math.floor(Math.random() * 3) + 1;
+    
+    const simulateHop = () => {
+      currentHop++;
+      if (currentHop <= maxHops) {
+        const node = relayNodes[Math.floor(Math.random() * relayNodes.length)];
+        io.emit('sos:hop', {
+          sosId: record.id,
+          fromNode: currentHop === 1 ? 'origin' : `node_${Math.floor(Math.random() * 5)}`,
+          toNode: node.id,
+          hopNumber: currentHop,
+          batteryAtNode: node.battery
+        });
+        
+        setTimeout(simulateHop, 1500);
+      } else {
+        record.totalHops = maxHops;
+        io.emit('sos:arrived', {
+          sosId: record.id,
+          totalHops: maxHops,
+          arrivalTimeMs: Date.now()
+        });
+        
+        // Trigger AI Triage
+        setTimeout(() => {
+          let priority = 'NORMAL';
+          let tags = [];
+          const text = (record.description || '').toLowerCase();
+          if (text.includes('fire') || text.includes('unconscious') || text.includes('bleeding')) {
+            priority = 'CRITICAL';
+            tags.push('immediate_dispatch');
+          } else if (text.includes('broken') || text.includes('trapped')) {
+            priority = 'HIGH';
+            tags.push('medical_required');
+          }
+          
+          record.priority = priority;
+          record.tags = tags;
+          io.emit('sos:triaged', { sosId: record.id, priority, tags });
+        }, 1000);
+      }
+    };
+    
+    setTimeout(simulateHop, 1000);
   });
   
-  socket.on('sos:dispatch', (data) => {
-    // ...
+  socket.on('sos:dispatch', ({ sosId, responderName }) => {
+    const record = sosRecords.find(r => r.id === sosId);
+    if (record) {
+      record.status = 'dispatched';
+      record.responderName = responderName;
+      io.emit('sos:statusUpdate', { sosId, status: 'dispatched' });
+    }
   });
   
-  socket.on('sos:resolve', (data) => {
-    // ...
+  socket.on('sos:resolve', ({ sosId, resolution }) => {
+    const record = sosRecords.find(r => r.id === sosId);
+    if (record) {
+      record.status = resolution;
+      io.emit('sos:statusUpdate', { sosId, status: resolution });
+    }
   });
 
   socket.on('disconnect', () => {
