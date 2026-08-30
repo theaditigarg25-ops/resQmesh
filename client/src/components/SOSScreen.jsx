@@ -5,18 +5,48 @@ const socket = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:4000');
 
 const CATEGORIES = ['Flood', 'Fire', 'Earthquake', 'Accident', 'Medical', 'Personal Safety'];
 
+const MESH_NODES = 5;
+
 export default function SOSScreen() {
   const [status, setStatus] = useState('idle');
   const [category, setCategory] = useState('Medical');
   const [description, setDescription] = useState('');
   const [countdown, setCountdown] = useState(null);
   const timerRef = useRef(null);
+  const [activeSosId, setActiveSosId] = useState(null);
+  const [activeHop, setActiveHop] = useState(-1);
+  const [arrivalData, setArrivalData] = useState(null);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeSosId) return;
+
+    const onHop = (data) => {
+      if (data.sosId === activeSosId) {
+        setActiveHop(data.hopNumber);
+      }
+    };
+
+    const onArrived = (data) => {
+      if (data.sosId === activeSosId) {
+        setArrivalData(data);
+        setStatus('arrived');
+      }
+    };
+
+    socket.on('sos:hop', onHop);
+    socket.on('sos:arrived', onArrived);
+
+    return () => {
+      socket.off('sos:hop', onHop);
+      socket.off('sos:arrived', onArrived);
+    };
+  }, [activeSosId]);
 
   const startCountdown = () => {
     setCountdown(3);
@@ -65,8 +95,9 @@ export default function SOSScreen() {
       } catch (err) { /* keep random fallback */ }
     }
 
+    const id = crypto.randomUUID();
     const payload = {
-      id: crypto.randomUUID(),
+      id,
       category,
       description,
       lat,
@@ -76,10 +107,18 @@ export default function SOSScreen() {
       deviceName: 'Phone A'
     };
 
+    setActiveSosId(id);
+    setActiveHop(-1);
+    setArrivalData(null);
     socket.emit('sos:trigger', payload);
+    setStatus('meshing');
+  };
 
-    setStatus('sent');
-    setTimeout(() => setStatus('idle'), 3000);
+  const resetToIdle = () => {
+    setStatus('idle');
+    setActiveSosId(null);
+    setActiveHop(-1);
+    setArrivalData(null);
   };
 
   return (
@@ -125,20 +164,9 @@ export default function SOSScreen() {
         <button
           onClick={startCountdown}
           disabled={status !== 'idle' || countdown !== null}
-          className={`w-56 h-56 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl ${status === 'sent'
-            ? 'bg-emerald-500 shadow-emerald-500/50 scale-95'
-            : 'bg-red-600 hover:bg-red-500 active:scale-95 shadow-red-600/50 cursor-pointer'
-            }`}
+          className="w-56 h-56 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl bg-red-600 hover:bg-red-500 active:scale-95 shadow-red-600/50 cursor-pointer"
         >
-          {status === 'idle' && (
-            <span className="text-white text-6xl font-extrabold tracking-wider">SOS</span>
-          )}
-          {status === 'sending' && (
-            <span className="text-white text-xl font-bold animate-pulse">SENDING</span>
-          )}
-          {status === 'sent' && (
-            <span className="text-white text-2xl font-bold">SENT!</span>
-          )}
+          <span className="text-white text-6xl font-extrabold tracking-wider">SOS</span>
         </button>
 
         <p className="mt-16 text-slate-500 text-sm text-center px-4">
@@ -160,6 +188,76 @@ export default function SOSScreen() {
               className="px-12 py-4 bg-white/20 border-2 border-white rounded-full text-white text-xl font-bold hover:bg-white/30 active:scale-95 transition-all"
             >
               CANCEL
+            </button>
+          </div>
+        )}
+
+        {/* Meshing Overlay — Sending via mesh with hop visualization */}
+        {status === 'meshing' && (
+          <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center z-50 rounded-[40px] px-6">
+            {/* Radar animation */}
+            <div className="relative w-40 h-40 mb-10 flex items-center justify-center">
+              <div className="absolute w-full h-full rounded-full border-2 border-red-500/30 animate-radar-ping"></div>
+              <div className="absolute w-full h-full rounded-full border-2 border-red-500/20 animate-radar-ping-delayed"></div>
+              <div className="absolute w-full h-full rounded-full border-2 border-red-500/10 animate-radar-ping-delayed-2"></div>
+              <div className="w-10 h-10 bg-red-500 rounded-full shadow-lg shadow-red-500/50"></div>
+            </div>
+
+            <p className="text-white text-xl font-bold mb-2 animate-pulse">Sending via mesh...</p>
+            <p className="text-slate-400 text-sm mb-12">Relaying through nearby nodes</p>
+
+            {/* Hop node visualization */}
+            <div className="flex items-center space-x-3">
+              {Array.from({ length: MESH_NODES }).map((_, i) => {
+                const isReached = i <= activeHop;
+                const isActive = i === activeHop;
+                return (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className={`w-10 h-14 rounded-lg flex items-center justify-center transition-all duration-300 ${isActive
+                        ? 'bg-red-500 shadow-lg shadow-red-500/50 scale-110 animate-hop-glow'
+                        : isReached
+                          ? 'bg-emerald-500/80 shadow-md shadow-emerald-500/30'
+                          : 'bg-slate-700'
+                      }`}>
+                      {/* Phone icon */}
+                      <svg className={`w-5 h-5 ${isReached ? 'text-white' : 'text-slate-500'}`} fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="7" y="2" width="10" height="20" rx="2" />
+                        <circle cx="12" cy="18" r="1" fill={isReached ? '#1e293b' : '#94a3b8'} />
+                      </svg>
+                    </div>
+                    <span className={`text-[10px] mt-1 font-semibold ${isActive ? 'text-red-400' : isReached ? 'text-emerald-400' : 'text-slate-600'}`}>
+                      {i === 0 ? 'You' : i === MESH_NODES - 1 ? 'Base' : `N${i}`}
+                    </span>
+                    {i < MESH_NODES - 1 && (
+                      <div className={`absolute mt-7 ml-12 w-3 h-0.5 ${isReached && i < activeHop ? 'bg-emerald-500' : 'bg-slate-700'}`} style={{ left: `${i * 52 + 26}px` }}></div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Arrived Overlay — Success screen */}
+        {status === 'arrived' && arrivalData && (
+          <div className="absolute inset-0 bg-emerald-600 flex flex-col items-center justify-center z-50 rounded-[40px] px-6">
+            {/* Checkmark */}
+            <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center mb-8">
+              <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+
+            <h3 className="text-white text-2xl font-extrabold mb-2">Rescue Notified!</h3>
+            <p className="text-emerald-100 text-lg font-semibold text-center">
+              Reached Rescue Node in {arrivalData.totalHops} hops, {(arrivalData.arrivalTimeMs / 1000).toFixed(1)}s
+            </p>
+
+            <button
+              onClick={resetToIdle}
+              className="mt-12 px-10 py-4 bg-white/20 border-2 border-white rounded-full text-white text-lg font-bold hover:bg-white/30 active:scale-95 transition-all"
+            >
+              DONE
             </button>
           </div>
         )}
