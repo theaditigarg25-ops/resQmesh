@@ -154,8 +154,8 @@ See [`CONTRACT.md`](./CONTRACT.md) for the full Socket.IO event and REST API ref
 | Name | Role |
 |---|---|
 | **Aditi Garg** | Backend Engineering + AI Triage — mesh relay simulation engine, severity classifier, data layer |
-| **Divyansh Singh** | UI/UX Design — victim SOS flow and interaction design |
-| **Ayush Mittal** | Frontend Development — victim / SOS app screen build |
+| **Divyansh Singh** |Frontend Development — victim / SOS app screen build  |
+| **Ayush Mittal** |  UI/UX Design — victim SOS flow and interaction design|
 | **Avika Agarwal** | Rescue Dashboard + Presentation — live map, dispatch console, pitch deck |
 
 Built for **[Build With Bharat 2.0] 2026** — Open Innovation Track.
