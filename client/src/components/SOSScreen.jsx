@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { v4 as uuidv4 } from 'uuid';
 
-const socket = io('http://localhost:4000');
+const socket = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:4000');
 
 const CATEGORIES = ['Flood', 'Fire', 'Earthquake', 'Accident', 'Medical', 'Personal Safety'];
 
@@ -45,7 +44,7 @@ export default function SOSScreen() {
 
   const handleSOS = async () => {
     setStatus('sending');
-    let lat = 0, lng = 0;
+    let lat = 28.6139, lng = 77.2090;
     if (navigator.geolocation) {
       try {
         const pos = await new Promise((resolve, reject) => {
@@ -54,28 +53,27 @@ export default function SOSScreen() {
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
       } catch (err) {
-        lat = 37.7749 + (Math.random() - 0.5) * 0.1;
-        lng = -122.4194 + (Math.random() - 0.5) * 0.1;
+        // Fallback to Delhi coordinates
       }
     }
 
-    let battery = 100;
+    let battery = Math.floor(Math.random() * 81) + 20; // fallback: random 20-100
     if (navigator.getBattery) {
       try {
         const batt = await navigator.getBattery();
         battery = Math.round(batt.level * 100);
-      } catch (err) { }
+      } catch (err) { /* keep random fallback */ }
     }
 
     const payload = {
-      id: uuidv4(),
-      category: category,
-      description: description || 'Emergency SOS Triggered from Mobile Device',
+      id: crypto.randomUUID(),
+      category,
+      description,
       lat,
       lng,
       battery,
       timestamp: Date.now(),
-      deviceName: navigator.userAgent.substring(0, 50) || 'Unknown Device'
+      deviceName: 'Phone A'
     };
 
     socket.emit('sos:trigger', payload);
