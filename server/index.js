@@ -19,13 +19,7 @@ const PORT = 4000;
 
 // State
 let sosRecords = [];
-let relayNodes = [
-  { id: 'node_1', lat: 37.7749, lng: -122.4194, battery: 98 },
-  { id: 'node_2', lat: 37.7849, lng: -122.4094, battery: 85 },
-  { id: 'node_3', lat: 37.7649, lng: -122.4294, battery: 72 },
-  { id: 'node_4', lat: 37.7799, lng: -122.4394, battery: 91 },
-  { id: 'node_5', lat: 37.7699, lng: -122.4094, battery: 100 }
-];
+const { relayNodes } = require('./meshEngine');
 
 app.get('/api/sos', (req, res) => {
   res.json(sosRecords);
