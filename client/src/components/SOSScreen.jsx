@@ -16,6 +16,27 @@ export default function SOSScreen() {
   const [activeSosId, setActiveSosId] = useState(null);
   const [activeHop, setActiveHop] = useState(-1);
   const [arrivalData, setArrivalData] = useState(null);
+  const [relayMode, setRelayMode] = useState(true);
+  const [batteryDisplay, setBatteryDisplay] = useState(null);
+
+  useEffect(() => {
+    const fetchBattery = async () => {
+      if (navigator.getBattery) {
+        try {
+          const batt = await navigator.getBattery();
+          setBatteryDisplay(Math.round(batt.level * 100));
+          batt.addEventListener('levelchange', () => {
+            setBatteryDisplay(Math.round(batt.level * 100));
+          });
+        } catch (err) {
+          setBatteryDisplay(Math.floor(Math.random() * 81) + 20);
+        }
+      } else {
+        setBatteryDisplay(Math.floor(Math.random() * 81) + 20);
+      }
+    };
+    fetchBattery();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -122,29 +143,46 @@ export default function SOSScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-      <div className="w-full max-w-[400px] bg-slate-900 rounded-[40px] shadow-2xl border-4 border-slate-800 p-8 flex flex-col items-center justify-center min-h-[700px] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-950 to-red-950/30 p-4">
+      <div className="w-full max-w-[400px] bg-gradient-to-b from-slate-900 to-slate-950 rounded-[40px] shadow-[0_0_60px_rgba(220,38,38,0.15)] border border-red-900/30 p-6 pt-14 pb-8 flex flex-col items-center min-h-[700px] relative overflow-hidden">
 
-        {/* Mock Status Bar */}
-        <div className="absolute top-4 w-full px-6 flex justify-between items-center text-slate-400 text-xs font-semibold">
-          <span>9:41</span>
-          <div className="flex space-x-2">
-            <span>5G</span>
-            <span>100%</span>
+        {/* Settings Row */}
+        <div className="absolute top-0 left-0 right-0 px-5 pt-4 pb-3 bg-slate-900/80 backdrop-blur-sm border-b border-red-900/20 rounded-t-[40px]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setRelayMode(!relayMode)}
+                className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${relayMode ? 'bg-orange-500' : 'bg-slate-700'}`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${relayMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
+              </button>
+              <span className="text-[11px] font-semibold text-slate-300">Relay Mode</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              {/* Battery icon */}
+              <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="2" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="20" y="9" width="2" height="6" rx="1" />
+                <rect x="4" y="8" width={`${Math.max((batteryDisplay || 0) / 100 * 14, 2)}`} height="8" rx="1" className={`${(batteryDisplay || 0) > 30 ? 'fill-orange-400' : 'fill-red-500'}`} />
+              </svg>
+              <span className={`text-xs font-bold ${(batteryDisplay || 0) > 30 ? 'text-orange-400' : 'text-red-400'}`}>
+                {batteryDisplay ?? '--'}%
+              </span>
+            </div>
           </div>
         </div>
 
-        <h2 className="text-slate-300 font-bold mb-6 text-xl tracking-widest uppercase">Emergency</h2>
+        <h2 className="text-orange-100/80 font-bold mb-4 text-lg tracking-widest uppercase mt-4">Emergency</h2>
 
-        <div className="w-full bg-slate-800 rounded-3xl p-5 mb-8 shadow-inner border border-slate-700/50">
-          <div className="flex flex-wrap gap-2 mb-4 justify-center">
+        <div className="w-full bg-slate-800/60 rounded-2xl p-4 mb-6 shadow-inner border border-red-900/20">
+          <div className="flex flex-wrap gap-1.5 mb-3 justify-center">
             {CATEGORIES.map(cat => (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${category === cat
-                  ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md shadow-red-500/30'
+                  : 'bg-slate-700/80 text-slate-400 hover:bg-slate-600 hover:text-slate-200'
                   }`}
               >
                 {cat}
@@ -157,20 +195,20 @@ export default function SOSScreen() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What's happening? (optional)"
-            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
+            className="w-full bg-slate-900/80 border border-red-900/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 transition-all"
           />
         </div>
 
         <button
           onClick={startCountdown}
           disabled={status !== 'idle' || countdown !== null}
-          className="w-56 h-56 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl bg-red-600 hover:bg-red-500 active:scale-95 shadow-red-600/50 cursor-pointer"
+          className="w-48 h-48 sm:w-56 sm:h-56 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-[0_0_40px_rgba(220,38,38,0.4)] bg-gradient-to-br from-red-500 via-red-600 to-orange-700 hover:from-red-400 hover:via-red-500 hover:to-orange-600 active:scale-95 cursor-pointer border-2 border-red-400/30"
         >
-          <span className="text-white text-6xl font-extrabold tracking-wider">SOS</span>
+          <span className="text-white text-5xl sm:text-6xl font-extrabold tracking-wider drop-shadow-lg">SOS</span>
         </button>
 
-        <p className="mt-16 text-slate-500 text-sm text-center px-4">
-          Pressing this button will broadcast your location to all nearby mesh nodes immediately.
+        <p className="mt-10 text-slate-500 text-xs sm:text-sm text-center px-4">
+          Broadcasts your location to nearby mesh nodes immediately.
         </p>
 
         {/* Home indicator line */}
@@ -214,10 +252,10 @@ export default function SOSScreen() {
                 return (
                   <div key={i} className="flex flex-col items-center">
                     <div className={`w-10 h-14 rounded-lg flex items-center justify-center transition-all duration-300 ${isActive
-                        ? 'bg-red-500 shadow-lg shadow-red-500/50 scale-110 animate-hop-glow'
-                        : isReached
-                          ? 'bg-emerald-500/80 shadow-md shadow-emerald-500/30'
-                          : 'bg-slate-700'
+                      ? 'bg-red-500 shadow-lg shadow-red-500/50 scale-110 animate-hop-glow'
+                      : isReached
+                        ? 'bg-emerald-500/80 shadow-md shadow-emerald-500/30'
+                        : 'bg-slate-700'
                       }`}>
                       {/* Phone icon */}
                       <svg className={`w-5 h-5 ${isReached ? 'text-white' : 'text-slate-500'}`} fill="currentColor" viewBox="0 0 24 24">
