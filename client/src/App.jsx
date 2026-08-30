@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import SOSTrigger from './components/SOSTrigger';
+import SOSScreen from './components/SOSScreen';
 import Dashboard from './components/Dashboard';
 
 function App() {
-  const [view, setView] = useState('dashboard'); // 'dashboard' or 'trigger'
+  const [view, setView] = useState('sosscreen'); // 'dashboard' or 'sosscreen'
 
   return (
     <div>
@@ -15,14 +15,14 @@ function App() {
           Dashboard View
         </button>
         <button 
-          onClick={() => setView('trigger')}
-          className={`px-4 py-2 text-sm font-semibold transition-colors ${view === 'trigger' ? 'bg-red-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+          onClick={() => setView('sosscreen')}
+          className={`px-4 py-2 text-sm font-semibold transition-colors ${view === 'sosscreen' ? 'bg-red-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
         >
           SOS Device View
         </button>
       </div>
       
-      {view === 'dashboard' ? <Dashboard /> : <SOSTrigger />}
+      {view === 'dashboard' ? <Dashboard /> : <SOSScreen />}
     </div>
   );
 }
