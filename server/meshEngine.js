@@ -10,6 +10,7 @@ const relayNodes = [
 ];
 
 const activeEmergencies = new Map();
+const seenPacketIds = new Set();
 
 function routeToGateway(io, sos) {
   const numIntermediates = Math.floor(Math.random() * 2) + 2; // 2 or 3 intermediate nodes
@@ -67,6 +68,16 @@ function routeToGateway(io, sos) {
       hopsRemaining--;
 
       if (hopsRemaining > 0) {
+        if (sos.ttl <= 0) {
+          console.log(`\n==========================================`);
+          console.log(`🚨 [Mesh Fragmentation] Packet ${sos.id} LOST!`);
+          console.log(`   TTL expired at intermediate node: ${nextNode.name}`);
+          console.log(`==========================================\n`);
+          
+          sos.status = 'lost';
+          io.emit('sos:statusUpdate', { sosId: sos.id, status: 'lost' });
+          return;
+        }
         doHop();
       } else {
         io.emit('sos:arrived', {
@@ -84,6 +95,12 @@ function routeToGateway(io, sos) {
 function initMesh(io) {
   io.on('connection', (socket) => {
     socket.on('sos:trigger', (data) => {
+      if (seenPacketIds.has(data.id)) {
+        console.log(`[Mesh Engine] Duplicate packet ignored: ${data.id}`);
+        return;
+      }
+      seenPacketIds.add(data.id);
+
       const record = {
         ...data,
         status: 'relaying',
