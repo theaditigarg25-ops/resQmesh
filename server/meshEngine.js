@@ -105,20 +105,43 @@ function initMesh(io) {
       }
       seenPacketIds.add(data.id);
 
+      // Automatic priority triage logic
+      let priority = 'NORMAL';
+      let tags = [];
+      const text = ((data.description || '') + ' ' + (data.category || '')).toLowerCase();
+      if (text.includes('fire') || text.includes('unconscious') || text.includes('bleeding') || text.includes('earthquake')) {
+        priority = 'CRITICAL';
+        tags.push('immediate_dispatch');
+      } else if (text.includes('broken') || text.includes('trapped') || text.includes('accident') || text.includes('medical')) {
+        priority = 'HIGH';
+        tags.push('medical_required');
+      } else {
+        priority = 'NORMAL';
+      }
+
       const record = {
         ...data,
         status: 'relaying',
         hops: [],
         ttl: 6,
+        priority: null, // Set to null initially so sos:triaged event triggers visible UI update animation
+        tags: [],
         receivedAt: Date.now()
       };
       
       activeEmergencies.set(data.id, record);
       
-      // Immediately re-broadcast as 'sos:new' to ALL connected clients
+      // 1. Instantly broadcast sos:new
       io.emit('sos:new', record);
       
-      // Start the relay simulation
+      // 2. Broadcast sos:triaged after 600ms delay so priority badge visibly pop/flashes
+      setTimeout(() => {
+        record.priority = priority;
+        record.tags = tags;
+        io.emit('sos:triaged', { sosId: data.id, priority, tags });
+      }, 600);
+
+      // 3. Start the relay simulation
       routeToGateway(io, record);
     });
   });

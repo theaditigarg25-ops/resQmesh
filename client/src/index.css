@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 body {
   margin: 0;
@@ -29,6 +27,56 @@ body {
   50% { filter: brightness(1.8); }
 }
 
+@keyframes new-card-highlight {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.95);
+    box-shadow: 0 0 35px rgba(45, 212, 191, 0.7);
+    border-color: rgba(45, 212, 191, 0.9);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+    box-shadow: 0 0 25px rgba(45, 212, 191, 0.5);
+    border-color: rgba(45, 212, 191, 0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hop-update-flash {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.4);
+    background-color: rgba(45, 212, 191, 0.4);
+    color: #5eead4;
+    box-shadow: 0 0 15px rgba(45, 212, 191, 0.8);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes priority-badge-pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+    box-shadow: 0 0 25px rgba(251, 146, 60, 0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .animate-radar-ping {
   animation: radar-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
@@ -43,6 +91,18 @@ body {
 
 .animate-hop-glow {
   animation: hop-glow 0.6s ease-in-out;
+}
+
+.animate-new-card {
+  animation: new-card-highlight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-hop-flash {
+  animation: hop-update-flash 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-priority-pop {
+  animation: priority-badge-pop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 /* Custom Leaflet Marker Cleanups */
