@@ -71,6 +71,15 @@ io.on('connection', (socket) => {
   });
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Error: Port ${PORT} is already in use by another process.`);
+  } else {
+    console.error('Server error:', err);
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
+
