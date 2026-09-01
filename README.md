@@ -49,7 +49,7 @@ Open the link on two tabs — one as the "victim" screen (`/`), one as the "resc
 
 ## 🎥 Demo Video
 
-> **Video link:** [ADD YOUR DEMO VIDEO LINK HERE — YouTube / Drive / Loom]
+> **Video link:** https://drive.google.com/file/d/1fxt_aqTWFMLHZOIY2vguSW_vrzrWs7fq/view?usp=drivesdk
 
 A 60–90 second walkthrough: SOS triggered on the victim screen → packet visibly hops through the simulated mesh → arrives at the Emergency Node → AI tags it CRITICAL → responder dispatches help on the live dashboard.
 
