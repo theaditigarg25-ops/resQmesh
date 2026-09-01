@@ -43,7 +43,7 @@ Women's safety is one emergency mode among several — flood, fire, earthquake, 
 
 ## 🚀 Live Demo
 
-> **Demo link:** [ADD YOUR DEPLOYED RENDER/HOSTING LINK HERE]
+> **Demo link:** https://resqmesh-t76o.onrender.com/
 
 Open the link on two tabs — one as the "victim" screen (`/`), one as the "rescue dashboard" (`/dashboard`) — to see the full SOS → mesh relay → AI triage → dispatch flow live.
 
