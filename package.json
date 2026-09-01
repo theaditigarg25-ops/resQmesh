@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "resqmesh full-stack project",
   "scripts": {
+    "start": "npm run dev",
     "client": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",
     "dev": "concurrently \"npm run server\" \"npm run client\""
