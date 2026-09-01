@@ -20,6 +20,8 @@ import {
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 const socket = io(SERVER_URL);
+socket.on('connect', () => console.log('socket connected'));
+socket.on('connect_error', (error) => console.log('socket connection failed', error));
 
 const PRIORITY_WEIGHTS = {
   CRITICAL: 3,

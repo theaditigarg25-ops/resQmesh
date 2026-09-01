@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { AlertCircle, Send, CheckCircle } from 'lucide-react';
 
 const socket = io('http://localhost:4000');
+socket.on('connect', () => console.log('socket connected'));
+socket.on('connect_error', (error) => console.log('socket connection failed', error));
 
 const CATEGORIES = ['Medical', 'Fire', 'Police', 'Rescue', 'Other'];
 
