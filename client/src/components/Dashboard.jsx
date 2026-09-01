@@ -18,7 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
 const socket = io(SERVER_URL);
 socket.on('connect', () => console.log('socket connected'));
 socket.on('connect_error', (error) => console.log('socket connection failed', error));

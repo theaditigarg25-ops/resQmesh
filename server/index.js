@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 const { relayNodes, activeEmergencies, initMesh } = require('./meshEngine');
 
 const app = express();
@@ -16,7 +17,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
 app.get('/api/sos', (req, res) => {
   res.json(Array.from(activeEmergencies.values()));
@@ -69,6 +70,14 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
+});
+
+// Serve static files from the React frontend app
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// Anything that doesn't match the API routes should be served by the React index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
 server.on('error', (err) => {

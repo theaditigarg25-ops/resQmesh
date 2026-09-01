@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { Radio, Battery, Zap } from 'lucide-react';
 
-const socket = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:4000');
+const socket = io(import.meta.env.VITE_SERVER_URL || window.location.origin);
 socket.on('connect', () => console.log('socket connected'));
 socket.on('connect_error', (error) => console.log('socket connection failed', error));
 

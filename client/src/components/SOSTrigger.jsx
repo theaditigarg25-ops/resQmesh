@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { AlertCircle, Send, CheckCircle } from 'lucide-react';
 
-const socket = io('http://localhost:4000');
+const socket = io(import.meta.env.VITE_SERVER_URL || window.location.origin);
 socket.on('connect', () => console.log('socket connected'));
 socket.on('connect_error', (error) => console.log('socket connection failed', error));
 
